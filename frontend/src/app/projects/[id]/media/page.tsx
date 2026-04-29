@@ -34,8 +34,9 @@ export default function MediaPage() {
 
   useEffect(() => {
     if (authenticated) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated]);
+  // load is stable (defined outside effect), projectId comes from params
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, projectId]);
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

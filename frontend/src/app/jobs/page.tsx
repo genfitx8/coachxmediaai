@@ -61,7 +61,8 @@ function JobsContent() {
     if (!authenticated) return;
     load();
     projectsApi.list().then(setProjectsList).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // load and projectsApi are stable references; authenticated is the only reactive dep
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated]);
 
   // Poll active jobs every 5s

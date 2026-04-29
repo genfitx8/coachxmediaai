@@ -1,6 +1,12 @@
 /**
  * Typed API client for the CoachX Media AI FastAPI backend.
  * Base URL is configured via NEXT_PUBLIC_API_BASE_URL.
+ *
+ * Security note: Access and refresh tokens are stored in localStorage for
+ * simplicity. This makes them accessible to any JavaScript running on the
+ * page (XSS risk). Ensure the application has thorough XSS protections
+ * (Content-Security-Policy, input sanitisation, etc.) and consider
+ * migrating to httpOnly cookies for production deployments.
  */
 
 const BASE_URL =

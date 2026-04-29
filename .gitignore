@@ -1,0 +1,6 @@
+backend/**/__pycache__
+backend/**/*.pyc
+backend/test.db
+backend/local_uploads/
+backend/test.db
+backend/local_uploads/

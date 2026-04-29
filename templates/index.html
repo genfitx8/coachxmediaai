@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoachX Media AI – 골프 레슨 영상 편집기</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    :root {
+      --green-dark: #2d6a2d;
+      --green-mid:  #4a9e4a;
+      --green-light:#d4edda;
+      --blue-dark:  #1e4f8c;
+    }
+
+    body { background: #f4f7f4; font-family: 'Segoe UI', sans-serif; }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+      color: #fff;
+      padding: 1.25rem 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header .brand { font-size: 1.6rem; font-weight: 700; letter-spacing: .5px; }
+    header .sub   { font-size: .9rem; opacity: .85; }
+
+    /* ── Tabs ── */
+    .nav-tabs .nav-link {
+      color: var(--green-dark);
+      font-weight: 600;
+      border-radius: 8px 8px 0 0;
+      padding: .65rem 1.5rem;
+    }
+    .nav-tabs .nav-link.active {
+      background: var(--green-dark);
+      color: #fff;
+      border-color: var(--green-dark);
+    }
+    .nav-tabs .nav-link:not(.active):hover { background: var(--green-light); }
+
+    /* ── Cards ── */
+    .card { border-radius: 12px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    .card-header {
+      background: var(--green-dark);
+      color: #fff;
+      border-radius: 12px 12px 0 0 !important;
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2.5px dashed var(--green-mid);
+      border-radius: 10px;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+      background: #fff;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      background: var(--green-light);
+      border-color: var(--green-dark);
+    }
+    .upload-zone i { font-size: 2.5rem; color: var(--green-mid); }
+    .upload-zone p { margin: .5rem 0 0; color: #555; font-size: .95rem; }
+    .upload-zone .filename { font-size: .85rem; color: var(--green-dark); font-weight: 600; margin-top: .4rem; }
+
+    /* ── Video preview ── */
+    video.preview {
+      width: 100%;
+      border-radius: 8px;
+      max-height: 220px;
+      background: #000;
+      display: none;
+      margin-top: .75rem;
+    }
+
+    /* ── Buttons ── */
+    .btn-golf {
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: .6rem 1.8rem;
+      font-weight: 600;
+      transition: background .2s, transform .1s;
+    }
+    .btn-golf:hover  { background: var(--green-mid); color: #fff; }
+    .btn-golf:active { transform: scale(.97); }
+    .btn-golf:disabled { background: #aaa; cursor: not-allowed; }
+
+    .btn-outline-golf {
+      border: 2px solid var(--green-dark);
+      color: var(--green-dark);
+      border-radius: 8px;
+      padding: .5rem 1.4rem;
+      font-weight: 600;
+      background: transparent;
+      transition: background .2s, color .2s;
+    }
+    .btn-outline-golf:hover { background: var(--green-dark); color: #fff; }
+
+    /* ── Progress / Result ── */
+    .processing-box {
+      display: none;
+      text-align: center;
+      padding: 1.5rem;
+      background: var(--green-light);
+      border-radius: 10px;
+    }
+    .result-box {
+      display: none;
+      padding: 1.25rem;
+      background: #e8f5e9;
+      border-radius: 10px;
+      border-left: 5px solid var(--green-dark);
+    }
+
+    /* ── Clip list ── */
+    .clip-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      background: #fff;
+      border: 1px solid #cde8cd;
+      border-radius: 8px;
+      padding: .5rem .75rem;
+      margin-bottom: .4rem;
+    }
+    .clip-row .clip-badge {
+      background: var(--green-dark);
+      color: #fff;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem;
+      flex-shrink: 0;
+    }
+    .clip-row .clip-label { flex: 1; font-size: .9rem; color: #333; }
+    .clip-row .btn-remove { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 1.1rem; }
+
+    .time-hint { font-size: .78rem; color: #888; margin-top: .2rem; }
+
+    /* ── Spinner ── */
+    .spinner-golf {
+      width: 48px; height: 48px;
+      border: 5px solid var(--green-light);
+      border-top-color: var(--green-dark);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto .75rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error toast ── */
+    #errorToast { min-width: 280px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header>
+  <div class="container d-flex align-items-center gap-3">
+    <span style="font-size:2.2rem;">⛳</span>
+    <div>
+      <div class="brand">CoachX Media AI</div>
+      <div class="sub">골프 레슨 영상 편집 도우미</div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main class="container py-4">
+
+  <!-- Tab navigation -->
+  <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" id="comp-tab" data-bs-toggle="tab"
+              data-bs-target="#compTab" type="button" role="tab">
+        <i class="bi bi-layout-split me-1"></i>비교 영상
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" id="sum-tab" data-bs-toggle="tab"
+              data-bs-target="#sumTab" type="button" role="tab">
+        <i class="bi bi-scissors me-1"></i>요약 영상
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ══════════ COMPARISON TAB ══════════ -->
+    <div class="tab-pane fade show active" id="compTab" role="tabpanel">
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-layout-split me-2"></i>레슨 전/후 비교 영상 만들기</div>
+        <div class="card-body">
+          <p class="text-muted small mb-4">레슨 전후 영상을 업로드하면 좌우 화면 비교 영상을 생성합니다.</p>
+
+          <div class="row g-4 mb-4">
+            <!-- Before -->
+            <div class="col-md-6">
+              <label class="fw-semibold mb-2" style="color:var(--green-dark);">
+                <i class="bi bi-camera-video me-1"></i>레슨 전 (Before)
+              </label>
+              <div class="upload-zone" id="beforeZone" onclick="document.getElementById('beforeInput').click()">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <p>클릭하거나 파일을 드래그하세요</p>
+                <div class="filename" id="beforeName"></div>
+              </div>
+              <input type="file" id="beforeInput" accept="video/*" class="d-none" />
+              <video id="beforePreview" class="preview" controls></video>
+            </div>
+            <!-- After -->
+            <div class="col-md-6">
+              <label class="fw-semibold mb-2" style="color:var(--blue-dark);">
+                <i class="bi bi-camera-video me-1"></i>레슨 후 (After)
+              </label>
+              <div class="upload-zone" id="afterZone" onclick="document.getElementById('afterInput').click()">
+                <i class="bi bi-cloud-arrow-up"></i>
+                <p>클릭하거나 파일을 드래그하세요</p>
+                <div class="filename" id="afterName"></div>
+              </div>
+              <input type="file" id="afterInput" accept="video/*" class="d-none" />
+              <video id="afterPreview" class="preview" controls></video>
+            </div>
+          </div>
+
+          <div class="text-center mb-3">
+            <button class="btn btn-golf" id="compBtn" onclick="submitComparison()" disabled>
+              <i class="bi bi-play-fill me-1"></i>비교 영상 생성
+            </button>
+          </div>
+
+          <!-- Processing -->
+          <div class="processing-box" id="compProcessing">
+            <div class="spinner-golf"></div>
+            <p class="fw-semibold" style="color:var(--green-dark);">영상을 처리 중입니다… 잠시만 기다려 주세요.</p>
+          </div>
+
+          <!-- Result -->
+          <div class="result-box" id="compResult">
+            <h6 class="fw-bold mb-2" style="color:var(--green-dark);">
+              <i class="bi bi-check-circle-fill me-1"></i>비교 영상이 완성되었습니다!
+            </h6>
+            <a id="compDownload" href="#" class="btn btn-golf">
+              <i class="bi bi-download me-1"></i>다운로드
+            </a>
+          </div>
+        </div>
+      </div>
+    </div><!-- /compTab -->
+
+    <!-- ══════════ SUMMARY TAB ══════════ -->
+    <div class="tab-pane fade" id="sumTab" role="tabpanel">
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-scissors me-2"></i>전체 레슨 영상 요약 만들기</div>
+        <div class="card-body">
+          <p class="text-muted small mb-4">전체 레슨 영상을 업로드하고 원하는 구간을 추가하면 요약 영상을 생성합니다.</p>
+
+          <!-- Upload -->
+          <label class="fw-semibold mb-2" style="color:var(--green-dark);">
+            <i class="bi bi-camera-video me-1"></i>레슨 영상 업로드
+          </label>
+          <div class="upload-zone mb-2" id="lessonZone" onclick="document.getElementById('lessonInput').click()">
+            <i class="bi bi-cloud-arrow-up"></i>
+            <p>클릭하거나 파일을 드래그하세요</p>
+            <div class="filename" id="lessonName"></div>
+          </div>
+          <input type="file" id="lessonInput" accept="video/*" class="d-none" />
+          <video id="lessonPreview" class="preview" controls></video>
+
+          <div id="lessonInfoBar" class="d-none mt-2 mb-3">
+            <span class="badge" style="background:var(--green-dark);" id="lessonDuration"></span>
+          </div>
+
+          <!-- Clip selector -->
+          <hr class="my-3" />
+          <h6 class="fw-bold mb-3" style="color:var(--green-dark);">
+            <i class="bi bi-plus-circle me-1"></i>클립 구간 추가
+          </h6>
+
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-sm-4">
+              <label class="form-label small fw-semibold">시작 시간</label>
+              <input type="text" id="clipStart" class="form-control form-control-sm" placeholder="0 또는 0:00:00" />
+              <div class="time-hint">초 또는 HH:MM:SS</div>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small fw-semibold">종료 시간</label>
+              <input type="text" id="clipEnd" class="form-control form-control-sm" placeholder="10 또는 0:00:10" />
+              <div class="time-hint">초 또는 HH:MM:SS</div>
+            </div>
+            <div class="col-sm-4">
+              <button class="btn btn-outline-golf w-100" onclick="addClip()">
+                <i class="bi bi-plus me-1"></i>클립 추가
+              </button>
+            </div>
+          </div>
+
+          <!-- Clip list -->
+          <div id="clipList" class="mb-3"></div>
+          <div id="noClipsMsg" class="text-muted small mb-3">추가된 클립이 없습니다.</div>
+
+          <div class="text-center mb-3">
+            <button class="btn btn-golf" id="sumBtn" onclick="submitSummary()" disabled>
+              <i class="bi bi-play-fill me-1"></i>요약 영상 생성
+            </button>
+          </div>
+
+          <!-- Processing -->
+          <div class="processing-box" id="sumProcessing">
+            <div class="spinner-golf"></div>
+            <p class="fw-semibold" style="color:var(--green-dark);">영상을 처리 중입니다… 잠시만 기다려 주세요.</p>
+          </div>
+
+          <!-- Result -->
+          <div class="result-box" id="sumResult">
+            <h6 class="fw-bold mb-2" style="color:var(--green-dark);">
+              <i class="bi bi-check-circle-fill me-1"></i>요약 영상이 완성되었습니다!
+            </h6>
+            <a id="sumDownload" href="#" class="btn btn-golf">
+              <i class="bi bi-download me-1"></i>다운로드
+            </a>
+          </div>
+        </div>
+      </div>
+    </div><!-- /sumTab -->
+
+  </div><!-- /tab-content -->
+</main>
+
+<!-- ═══════════ ERROR TOAST ═══════════ -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="errorToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="errorMsg"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ──────────────────────────────────────────────────────────────
+//  Utility helpers
+// ──────────────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+  const toast = new bootstrap.Toast(document.getElementById('errorToast'), { delay: 5000 });
+  toast.show();
+}
+
+function setVisible(id, show) {
+  document.getElementById(id).style.display = show ? '' : 'none';
+}
+
+function formatSeconds(sec) {
+  if (sec == null || isNaN(sec)) return '';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Upload zone helpers
+// ──────────────────────────────────────────────────────────────
+function bindUpload(zoneId, inputId, nameId, previewId, onFile) {
+  const zone    = document.getElementById(zoneId);
+  const input   = document.getElementById(inputId);
+  const nameEl  = document.getElementById(nameId);
+  const preview = document.getElementById(previewId);
+
+  function handleFile(file) {
+    if (!file) return;
+    nameEl.textContent = file.name;
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.style.display = 'block';
+    if (onFile) onFile(file);
+  }
+
+  input.addEventListener('change', () => handleFile(input.files[0]));
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      input.files = e.dataTransfer.files;
+      handleFile(file);
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  COMPARISON TAB
+// ──────────────────────────────────────────────────────────────
+let beforeReady = false, afterReady = false;
+
+function checkCompReady() {
+  document.getElementById('compBtn').disabled = !(beforeReady && afterReady);
+}
+
+bindUpload('beforeZone', 'beforeInput', 'beforeName', 'beforePreview', () => {
+  beforeReady = true; checkCompReady();
+});
+bindUpload('afterZone', 'afterInput', 'afterName', 'afterPreview', () => {
+  afterReady = true; checkCompReady();
+});
+
+async function submitComparison() {
+  const beforeFile = document.getElementById('beforeInput').files[0];
+  const afterFile  = document.getElementById('afterInput').files[0];
+  if (!beforeFile || !afterFile) { showError('두 영상을 모두 선택해 주세요.'); return; }
+
+  const btn = document.getElementById('compBtn');
+  btn.disabled = true;
+  document.getElementById('compResult').style.display    = 'none';
+  document.getElementById('compProcessing').style.display = '';
+
+  const fd = new FormData();
+  fd.append('before_video', beforeFile);
+  fd.append('after_video',  afterFile);
+
+  try {
+    const res  = await fetch('/api/comparison', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+      document.getElementById('compDownload').href = `/download/${data.filename}`;
+      document.getElementById('compResult').style.display = '';
+    } else {
+      showError(data.message || '처리 중 오류가 발생했습니다.');
+    }
+  } catch (err) {
+    showError('서버 연결에 실패했습니다.');
+  } finally {
+    document.getElementById('compProcessing').style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  SUMMARY TAB
+// ──────────────────────────────────────────────────────────────
+let clips = [];
+let lessonFile = null;
+
+bindUpload('lessonZone', 'lessonInput', 'lessonName', 'lessonPreview', async (file) => {
+  lessonFile = file;
+  updateSumBtn();
+
+  // Try to fetch video info
+  const fd = new FormData();
+  fd.append('video', file);
+  try {
+    const res  = await fetch('/api/video-info', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.duration) {
+      document.getElementById('lessonDuration').textContent =
+        `⏱ 영상 길이: ${formatSeconds(data.duration)}  |  ${data.size[0]}×${data.size[1]}  |  ${data.fps?.toFixed(1)} fps`;
+      document.getElementById('lessonInfoBar').classList.remove('d-none');
+    }
+  } catch (_) { /* ignore info errors */ }
+});
+
+function parseTime(val) {
+  val = val.trim();
+  if (/^\d+(\.\d+)?$/.test(val)) return parseFloat(val);
+  const parts = val.split(':');
+  if (parts.length === 3) return parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseFloat(parts[2]);
+  if (parts.length === 2) return parseInt(parts[0])*60 + parseFloat(parts[1]);
+  return NaN;
+}
+
+function addClip() {
+  const startVal = document.getElementById('clipStart').value;
+  const endVal   = document.getElementById('clipEnd').value;
+  const start = parseTime(startVal);
+  const end   = parseTime(endVal);
+
+  if (isNaN(start) || isNaN(end)) { showError('시작/종료 시간을 올바르게 입력해 주세요.'); return; }
+  if (end <= start)                { showError('종료 시간은 시작 시간보다 커야 합니다.'); return; }
+
+  clips.push({ start, end });
+  renderClips();
+  document.getElementById('clipStart').value = '';
+  document.getElementById('clipEnd').value   = '';
+  updateSumBtn();
+}
+
+function removeClip(idx) {
+  clips.splice(idx, 1);
+  renderClips();
+  updateSumBtn();
+}
+
+function renderClips() {
+  const list = document.getElementById('clipList');
+  const noMsg = document.getElementById('noClipsMsg');
+  list.innerHTML = '';
+  if (clips.length === 0) {
+    noMsg.style.display = '';
+    return;
+  }
+  noMsg.style.display = 'none';
+  clips.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'clip-row';
+    row.innerHTML = `
+      <div class="clip-badge">${i + 1}</div>
+      <div class="clip-label">
+        <i class="bi bi-play-fill" style="color:var(--green-mid);"></i>
+        ${formatSeconds(c.start)} → ${formatSeconds(c.end)}
+        <span class="text-muted small">(${(c.end - c.start).toFixed(1)}초)</span>
+      </div>
+      <button class="btn-remove" title="삭제" onclick="removeClip(${i})">
+        <i class="bi bi-x-circle"></i>
+      </button>`;
+    list.appendChild(row);
+  });
+}
+
+function updateSumBtn() {
+  document.getElementById('sumBtn').disabled = !(lessonFile && clips.length > 0);
+}
+
+async function submitSummary() {
+  if (!lessonFile)       { showError('레슨 영상을 업로드해 주세요.'); return; }
+  if (clips.length === 0){ showError('최소 한 개의 클립을 추가해 주세요.'); return; }
+
+  const btn = document.getElementById('sumBtn');
+  btn.disabled = true;
+  document.getElementById('sumResult').style.display    = 'none';
+  document.getElementById('sumProcessing').style.display = '';
+
+  const fd = new FormData();
+  fd.append('lesson_video', lessonFile);
+  fd.append('clips', JSON.stringify(clips));
+
+  try {
+    const res  = await fetch('/api/summary', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'success') {
+      document.getElementById('sumDownload').href = `/download/${data.filename}`;
+      document.getElementById('sumResult').style.display = '';
+    } else {
+      showError(data.message || '처리 중 오류가 발생했습니다.');
+    }
+  } catch (err) {
+    showError('서버 연결에 실패했습니다.');
+  } finally {
+    document.getElementById('sumProcessing').style.display = 'none';
+    btn.disabled = !(lessonFile && clips.length > 0);
+  }
+}
+
+// Allow pressing Enter in time inputs to add clip
+['clipStart', 'clipEnd'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') addClip();
+  })
+);
+</script>
+</body>
+</html>

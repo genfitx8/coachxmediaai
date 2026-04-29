@@ -125,7 +125,7 @@ async def create_billing_portal(
 
 async def _handle_stripe_event(event: dict, db: AsyncSession) -> None:
     import uuid
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     event_type = event["type"]
 
@@ -171,7 +171,7 @@ async def _handle_stripe_event(event: dict, db: AsyncSession) -> None:
             sub.status = stripe_sub.get("status", sub.status)
             period_end = stripe_sub.get("current_period_end")
             if period_end:
-                sub.current_period_end = datetime.utcfromtimestamp(period_end)
+                sub.current_period_end = datetime.fromtimestamp(period_end, tz=timezone.utc)
             if event_type == "customer.subscription.deleted":
                 sub.plan = "free"
             await db.commit()

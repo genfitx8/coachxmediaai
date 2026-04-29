@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -159,8 +159,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         oauth_account.refresh_token = token.get("refresh_token")
         expires_in = token.get("expires_in")
         if expires_in:
-            from datetime import timedelta
-            oauth_account.expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            oauth_account.expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         await db.commit()
         user_id = oauth_account.user_id
     else:
@@ -181,8 +180,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         expires_in = token.get("expires_in")
         expires_at = None
         if expires_in:
-            from datetime import timedelta
-            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
         new_oauth = OAuthAccount(
             id=uuid.uuid4(),

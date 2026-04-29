@@ -365,7 +365,7 @@ function setVisible(id, show) {
 }
 
 function formatSeconds(sec) {
-  if (sec == null || isNaN(sec)) return '';
+  if (sec === null || sec === undefined || isNaN(sec)) return '';
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);

@@ -1,3 +1,5 @@
+import asyncio
+import io
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -40,7 +42,6 @@ async def upload_media(
 
     storage = get_storage_service()
     storage_key = f"uploads/{current_user.id}/{project_id}/{uuid.uuid4()}_{file.filename}"
-    import io
     await _run_sync(storage.upload_file, io.BytesIO(file_bytes), storage_key, file.content_type or "application/octet-stream")
 
     media = Media(
@@ -158,6 +159,5 @@ async def _get_owned_media(
 
 
 async def _run_sync(func, *args):
-    import asyncio
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, func, *args)

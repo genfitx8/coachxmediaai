@@ -43,7 +43,6 @@ async def test_upload_media(client: AsyncClient, auth_headers: dict):
     assert data["content_type"] == "video/mp4"
     assert data["size_bytes"] == len(file_content)
     assert data["project_id"] == project_id
-    return data["id"]
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime, timezone
+
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -124,9 +127,6 @@ async def create_billing_portal(
 
 
 async def _handle_stripe_event(event: dict, db: AsyncSession) -> None:
-    import uuid
-    from datetime import datetime, timezone
-
     event_type = event["type"]
 
     if event_type == "checkout.session.completed":

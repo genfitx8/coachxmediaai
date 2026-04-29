@@ -120,16 +120,16 @@ def create_summary_video(lesson_path, clips, output_path):
         output_path: Destination path for the output MP4.
     """
     if not clips:
-        raise ValueError('최소 한 개의 클립을 지정해야 합니다.')
+        raise ValueError('At least one clip must be specified.')
 
     source = VideoFileClip(lesson_path)
+    segments = []
     try:
-        segments = []
         for clip_info in clips:
             start = _parse_time(clip_info['start'])
             end = _parse_time(clip_info['end'])
             if end <= start:
-                raise ValueError(f'클립 종료 시간({end}s)이 시작 시간({start}s)보다 커야 합니다.')
+                raise ValueError(f'Clip end time ({end}s) must be greater than start time ({start}s).')
             end = min(end, source.duration)
             start = max(start, 0.0)
             if start >= source.duration:
@@ -138,7 +138,7 @@ def create_summary_video(lesson_path, clips, output_path):
             segments.append(seg)
 
         if not segments:
-            raise ValueError('유효한 클립이 없습니다.')
+            raise ValueError('No valid clips found within the video duration.')
 
         crossfade = 0.5  # seconds
         # Apply crossfade if more than one clip and each is long enough
@@ -162,7 +162,7 @@ def create_summary_video(lesson_path, clips, output_path):
         )
     finally:
         source.close()
-        for seg in segments if 'segments' in dir() else []:
+        for seg in segments:
             try:
                 seg.close()
             except Exception:

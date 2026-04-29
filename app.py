@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import logging
 
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
@@ -9,6 +10,8 @@ from video_editor import create_comparison_video, create_summary_video
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB limit
+
+logger = logging.getLogger(__name__)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 OUTPUT_FOLDER = os.path.join(os.path.dirname(__file__), 'outputs')
@@ -57,7 +60,8 @@ def api_comparison():
         create_comparison_video(before_path, after_path, output_path)
         return jsonify({'status': 'success', 'filename': output_filename})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.exception('comparison video processing failed')
+        return jsonify({'status': 'error', 'message': '영상 처리 중 오류가 발생했습니다.'}), 500
     finally:
         for p in (before_path, after_path):
             try:
@@ -93,8 +97,12 @@ def api_summary():
     try:
         create_summary_video(lesson_path, clips, output_path)
         return jsonify({'status': 'success', 'filename': output_filename})
+    except ValueError as e:
+        logger.warning('summary clip validation error: %s', e)
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.exception('summary video processing failed')
+        return jsonify({'status': 'error', 'message': '영상 처리 중 오류가 발생했습니다.'}), 500
     finally:
         try:
             os.remove(lesson_path)
@@ -122,7 +130,8 @@ def api_video_info():
             }
         return jsonify(info)
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        logger.exception('video-info extraction failed')
+        return jsonify({'status': 'error', 'message': '영상 정보를 읽을 수 없습니다.'}), 500
     finally:
         try:
             os.remove(video_path)
@@ -137,4 +146,4 @@ def download(filename):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

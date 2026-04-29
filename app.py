@@ -11,6 +11,10 @@ from video_editor import create_comparison_video, create_summary_video
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB limit
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+)
 logger = logging.getLogger(__name__)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
@@ -97,10 +101,10 @@ def api_summary():
     try:
         create_summary_video(lesson_path, clips, output_path)
         return jsonify({'status': 'success', 'filename': output_filename})
-    except ValueError as e:
-        logger.warning('summary clip validation error: %s', e)
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-    except Exception as e:
+    except ValueError:
+        logger.warning('summary clip validation error', exc_info=True)
+        return jsonify({'status': 'error', 'message': '클립 시간 값이 올바르지 않습니다. 시작/종료 시간을 확인해 주세요.'}), 400
+    except Exception:
         logger.exception('summary video processing failed')
         return jsonify({'status': 'error', 'message': '영상 처리 중 오류가 발생했습니다.'}), 500
     finally:

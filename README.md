@@ -1,42 +1,124 @@
-# CoachX Media AI — 골프 레슨 영상 편집기
+# CoachX Media AI
 
-골프 코치가 학생의 레슨 영상을 자동으로 편집해주는 웹 애플리케이션입니다.
+AI-powered media coaching platform — golf lesson video editor with smart transcription, highlight extraction, and subscription billing.
 
-## 주요 기능
+---
 
-| 기능 | 설명 |
-|------|------|
-| 📹 **비교 영상** | 레슨 전/후 영상을 좌우 화면 분할(Side-by-side)로 합성 |
-| ✂️ **요약 영상** | 전체 레슨 영상에서 원하는 구간을 선택해 하이라이트 요약 영상 생성 |
+## Repository Structure
 
-## 기술 스택
-
-- **Backend**: Python · Flask
-- **Video Processing**: MoviePy (ffmpeg 기반)
-- **Frontend**: Bootstrap 5 · Vanilla JS (드래그앤드롭 업로드, 타임라인 클립 편집기)
-
-## 설치 및 실행
-
-```bash
-# 의존성 설치
-pip install -r requirements.txt
-
-# 서버 실행
-python app.py
+```
+coachxmediaai/
+├── backend/          # FastAPI service (production API)
+├── frontend/         # Next.js 16 (App Router) + Tailwind CSS frontend
+├── app.py            # Legacy Flask demo (not actively used)
+└── templates/        # Legacy Flask templates
 ```
 
-브라우저에서 `http://localhost:5000` 접속
+---
 
-## 지원 형식
+## Quick Start — Local Development
 
-업로드 가능한 영상 형식: **MP4, MOV, AVI, MKV, WEBM** (파일당 최대 500 MB)
+### Prerequisites
 
-## API 엔드포인트
+- **Docker & Docker Compose** (for the backend)
+- **Node.js ≥ 20** + **npm ≥ 10** (for the frontend)
 
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| `GET` | `/` | 메인 페이지 |
-| `POST` | `/api/comparison` | 비교 영상 생성 (`before_video`, `after_video`) |
-| `POST` | `/api/summary` | 요약 영상 생성 (`lesson_video`, `clips` JSON) |
-| `POST` | `/api/video-info` | 영상 정보 조회 (`video`) |
-| `GET` | `/download/<filename>` | 생성된 영상 다운로드 |
+---
+
+### 1. Start the Backend
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env and fill in your secrets (see backend/README.md)
+docker compose up --build
+```
+
+The FastAPI service will be available at **http://localhost:8000**.  
+Interactive API docs: **http://localhost:8000/docs**
+
+Run database migrations (first time only):
+
+```bash
+docker compose exec api alembic upgrade head
+```
+
+---
+
+### 2. Start the Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local
+# NEXT_PUBLIC_API_BASE_URL defaults to http://localhost:8000/api/v1
+npm install
+npm run dev
+```
+
+The Next.js development server will start at **http://localhost:3000**.
+
+---
+
+## Environment Variables
+
+### Backend (backend/.env)
+
+See [backend/README.md](backend/README.md) for the full list. Key variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgresql+asyncpg://...` | Async PostgreSQL URL |
+| `SECRET_KEY` | `changeme-secret-key` | JWT signing secret |
+| `STRIPE_SECRET_KEY` | `` | Stripe secret key |
+| `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins |
+
+### Frontend (frontend/.env.local)
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000/api/v1` | FastAPI base URL |
+
+---
+
+## Frontend Pages
+
+| Route | Description |
+|---|---|
+| `/login` | Email + password login |
+| `/signup` | New account registration |
+| `/projects` | List, create, and delete projects |
+| `/projects/[id]` | View and edit a single project |
+| `/projects/[id]/media` | Upload and manage media files |
+| `/jobs` | Submit AI jobs and poll status |
+| `/billing` | Stripe checkout and billing portal |
+
+---
+
+## Backend API
+
+All routes are prefixed with `/api/v1`. See [backend/README.md](backend/README.md) for the full endpoint reference.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16 (App Router), TypeScript, Tailwind CSS |
+| Backend | FastAPI, SQLAlchemy (async), PostgreSQL |
+| Auth | JWT (access + refresh tokens) |
+| Storage | AWS S3 / LocalStack / local filesystem |
+| Payments | Stripe |
+| Task Queue | Celery + Redis |
+
+---
+
+## Legacy Demo
+
+The `app.py` file at the repo root is a **Flask demo** for the original golf-video comparison tool. It is not connected to the FastAPI backend. Run it separately if needed:
+
+```bash
+pip install -r requirements.txt
+python app.py
+# Available at http://localhost:5000
+```

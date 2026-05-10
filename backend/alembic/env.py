@@ -24,10 +24,7 @@ target_metadata = Base.metadata
 
 def get_url() -> str:
     from app.config import settings
-    # Alembic needs a sync driver; replace asyncpg with psycopg2
-    return settings.DATABASE_URL.replace("+asyncpg", "").replace(
-        "postgresql+asyncpg", "postgresql"
-    )
+    return settings.DATABASE_URL
 
 
 def run_migrations_offline() -> None:

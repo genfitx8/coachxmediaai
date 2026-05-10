@@ -33,9 +33,27 @@ export default function MediaPage() {
   }
 
   useEffect(() => {
-    if (authenticated) load();
-  // load is stable (defined outside effect), projectId comes from params
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!authenticated) return;
+
+    let cancelled = false;
+
+    async function fetchMedia() {
+      setError(null);
+      try {
+        const data = await mediaApi.listForProject(projectId);
+        if (!cancelled) setItems(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load media");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchMedia();
+
+    return () => {
+      cancelled = true;
+    };
   }, [authenticated, projectId]);
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {

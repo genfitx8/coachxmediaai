@@ -40,29 +40,41 @@ function JobsContent() {
   // Polling interval ref
   const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
 
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await jobsApi.list();
-      setItems(data);
-      // Track jobs that are still running/pending for polling
-      const running = new Set(
-        data.filter((j) => ["pending", "running"].includes(j.status)).map((j) => j.id)
-      );
-      setPollingIds(running);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load jobs");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
     if (!authenticated) return;
-    load();
-    projectsApi.list().then(setProjectsList).catch(() => {});
-  // load and projectsApi are stable references; authenticated is the only reactive dep
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    let cancelled = false;
+
+    async function fetchInitialData() {
+      setError(null);
+      try {
+        const [jobsData, projectsData] = await Promise.all([
+          jobsApi.list(),
+          projectsApi.list(),
+        ]);
+        if (!cancelled) {
+          setItems(jobsData);
+          setProjectsList(projectsData);
+          setPollingIds(
+            new Set(
+              jobsData
+                .filter((j) => ["pending", "running"].includes(j.status))
+                .map((j) => j.id)
+            )
+          );
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchInitialData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [authenticated]);
 
   // Poll active jobs every 5s

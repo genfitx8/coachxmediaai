@@ -32,7 +32,27 @@ export default function ProjectsPage() {
   }
 
   useEffect(() => {
-    if (authenticated) load();
+    if (!authenticated) return;
+
+    let cancelled = false;
+
+    async function fetchProjects() {
+      setError(null);
+      try {
+        const data = await projectsApi.list();
+        if (!cancelled) setItems(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchProjects();
+
+    return () => {
+      cancelled = true;
+    };
   }, [authenticated]);
 
   async function handleCreate(e: FormEvent) {

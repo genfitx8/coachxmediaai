@@ -113,6 +113,50 @@ All routes are prefixed with `/api/v1`. See [backend/README.md](backend/README.m
 
 ---
 
+## Vercel Deployment
+
+### What runs on Vercel
+
+Only the **Next.js frontend** can be deployed to Vercel.  
+The FastAPI backend requires PostgreSQL, Redis, and Celery workers — services that are not supported on Vercel. Deploy the backend separately (e.g., [Railway](https://railway.app), [Render](https://render.com), or a VPS) and expose it via HTTPS before deploying the frontend.
+
+### How to deploy the frontend
+
+1. **Import the repository** into [vercel.com](https://vercel.com) (New Project → Import Git Repository).
+2. Vercel will detect the `vercel.json` at the repo root and use these settings automatically:
+   - **Install command**: `cd frontend && npm ci`
+   - **Build command**: `cd frontend && npm run build`
+   - **Output directory**: `frontend/.next`
+   - **Framework**: Next.js
+3. Set the following **Environment Variable** in the Vercel project settings:
+
+   | Variable | Example value | Description |
+   |---|---|---|
+   | `NEXT_PUBLIC_API_BASE_URL` | `https://api.your-domain.com/api/v1` | URL of your deployed FastAPI backend |
+
+4. Click **Deploy**. Vercel will build and publish the frontend automatically.
+
+### Subsequent deployments
+
+Every push to the default branch triggers a new Vercel deployment. Pull request previews are created automatically for every PR.
+
+### Backend environment variables (required for the backend service)
+
+Deploy the backend with the variables from `backend/.env.example`. Key variables:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Async PostgreSQL connection string (`postgresql+asyncpg://...`) |
+| `REDIS_URL` | Redis URL for Celery (`redis://...`) |
+| `SECRET_KEY` | Long random string for JWT signing |
+| `CORS_ORIGINS` | JSON array of allowed origins — must include your Vercel frontend URL, e.g. `["https://your-app.vercel.app"]` |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 credentials for media storage |
+| `S3_BUCKET` | S3 bucket name |
+
+---
+
 ## Legacy Demo
 
 The `app.py` file at the repo root is a **Flask demo** for the original golf-video comparison tool. It is not connected to the FastAPI backend. Run it separately if needed:

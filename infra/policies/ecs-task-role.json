@@ -1,4 +1,5 @@
 {
+  "_comment": "Bucket names follow the pattern <app_name>-uploads-<environment>. SSM paths use /coachxmedia/ prefix. Update ARNs below to match your deployment.",
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -11,8 +12,8 @@
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::coachxmedia-uploads",
-        "arn:aws:s3:::coachxmedia-uploads/*"
+        "arn:aws:s3:::coachxmedia-uploads-production",
+        "arn:aws:s3:::coachxmedia-uploads-production/*"
       ]
     },
     {

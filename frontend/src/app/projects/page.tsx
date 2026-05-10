@@ -36,12 +36,11 @@ export default function ProjectsPage() {
     projectsApi.list()
       .then((data) => {
         setItems(data);
-        setLoading(false);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load projects");
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
   }, [authenticated]);
 
   async function handleCreate(e: FormEvent) {

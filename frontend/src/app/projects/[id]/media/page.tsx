@@ -37,12 +37,11 @@ export default function MediaPage() {
     mediaApi.listForProject(projectId)
       .then((data) => {
         setItems(data);
-        setLoading(false);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load media");
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
   }, [authenticated, projectId]);
 
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {

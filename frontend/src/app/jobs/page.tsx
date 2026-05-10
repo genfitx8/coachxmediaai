@@ -45,15 +45,14 @@ function JobsContent() {
     jobsApi.list()
       .then((data) => {
         setItems(data);
-        setLoading(false);
         setPollingIds(new Set(
           data.filter((j) => ["pending", "running"].includes(j.status)).map((j) => j.id)
         ));
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load jobs");
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
     projectsApi.list().then(setProjectsList).catch(() => {});
   }, [authenticated]);
 

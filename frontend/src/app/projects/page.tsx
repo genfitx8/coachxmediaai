@@ -32,7 +32,16 @@ export default function ProjectsPage() {
   }
 
   useEffect(() => {
-    if (authenticated) load();
+    if (!authenticated) return;
+    projectsApi.list()
+      .then((data) => {
+        setItems(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load projects");
+        setLoading(false);
+      });
   }, [authenticated]);
 
   async function handleCreate(e: FormEvent) {

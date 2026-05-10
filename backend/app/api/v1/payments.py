@@ -54,7 +54,7 @@ async def create_checkout_session(
         cancel_url="http://localhost:3000/payment/cancel",
         metadata={"user_id": str(current_user.id)},
     )
-    return {"checkout_url": session.url}
+    return {"url": session.url}
 
 
 @router.get("/subscription", response_model=SubscriptionRead)
@@ -123,7 +123,7 @@ async def create_billing_portal(
         customer=subscription.stripe_customer_id,
         return_url="http://localhost:3000/settings",
     )
-    return {"portal_url": portal_session.url}
+    return {"url": portal_session.url}
 
 
 async def _handle_stripe_event(event: dict, db: AsyncSession) -> None:

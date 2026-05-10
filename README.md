@@ -100,6 +100,23 @@ All routes are prefixed with `/api/v1`. See [backend/README.md](backend/README.m
 
 ---
 
+## Vercel Deployment (Frontend Only)
+
+This repository is a hybrid app. Only the **Next.js frontend** (`frontend/`) should run on Vercel.  
+The FastAPI backend requires PostgreSQL, Redis, and Celery workers, so it must be hosted separately.
+
+### Correct Vercel setup for this repo
+
+1. Import this GitHub repository into Vercel.
+2. In **Project Settings → General**, set **Root Directory** to `frontend`.
+3. Keep Framework Preset as **Next.js**.
+4. Add `NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com/api/v1` in Vercel environment variables.
+5. Deploy.
+
+> Note: For this monorepo structure, setting the Vercel Root Directory to `frontend` is required. A root-level `vercel.json` that builds via `cd frontend` is not the recommended setup.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

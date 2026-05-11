@@ -82,6 +82,39 @@ docker compose exec api alembic upgrade head
 | `STRIPE_PRICE_ID_PRO` | `` | Stripe Price ID for the Pro plan |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins (JSON list) |
 | `MAX_UPLOAD_SIZE_MB` | `500` | Maximum direct upload size in MB |
+| `ADMIN_EMAIL` | `` | E-mail of the auto-created admin account (bootstrap skipped if empty) |
+| `ADMIN_PASSWORD` | `` | Password for the auto-created admin account |
+| `ADMIN_FULL_NAME` | `Administrator` | Display name for the auto-created admin account |
+
+---
+
+## Admin Account Bootstrap
+
+The API can automatically create an initial administrator account when it starts up.
+Set the following variables in `backend/.env` (or as real environment variables in
+production) **before** the first run:
+
+```env
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me-in-production
+ADMIN_FULL_NAME=Administrator   # optional, defaults to "Administrator"
+```
+
+**Behavior:**
+
+| Scenario | Result |
+|---|---|
+| `ADMIN_EMAIL` or `ADMIN_PASSWORD` not set | Bootstrap is skipped silently |
+| E-mail does **not** exist in the database | Account is created with `role="admin"`, active, verified |
+| E-mail **already exists** with `role="user"` | Role is promoted to `"admin"`; password is **not** changed |
+| E-mail already exists with `role="admin"` | No changes (fully idempotent) |
+
+> **Security note:** Use a strong, unique password and change it immediately after
+> the first login. For production deployments store `ADMIN_PASSWORD` in a secrets
+> manager (e.g. AWS SSM Parameter Store) and never commit it to source control.
+
+Once the account is created, log in with your admin e-mail and password at
+`POST /api/v1/auth/login`.
 
 ---
 

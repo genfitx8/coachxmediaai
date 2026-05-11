@@ -71,6 +71,8 @@ See [backend/README.md](backend/README.md) for the full list. Key variables:
 | `SECRET_KEY` | `changeme-secret-key` | JWT signing secret |
 | `STRIPE_SECRET_KEY` | `` | Stripe secret key |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins |
+| `ADMIN_EMAIL` | `` | E-mail of the auto-created admin account |
+| `ADMIN_PASSWORD` | `` | Password for the auto-created admin account |
 
 ### Frontend (frontend/.env.local)
 
@@ -114,6 +116,22 @@ The FastAPI backend requires PostgreSQL, Redis, and Celery workers, so it must b
 5. Deploy.
 
 > Note: For this monorepo structure, setting the Vercel Root Directory to `frontend` is required. A root-level `vercel.json` that builds via `cd frontend` is not the recommended setup.
+
+---
+
+## Administrator Account
+
+To bootstrap an initial admin account, add the following to `backend/.env`:
+
+```env
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=change-me-in-production
+```
+
+The API will create (or promote) this account automatically on the next startup.
+Log in with the same credentials at `POST /api/v1/auth/login`.
+
+See [backend/README.md](backend/README.md#admin-account-bootstrap) for full details.
 
 ---
 

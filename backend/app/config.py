@@ -30,5 +30,12 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     MAX_UPLOAD_SIZE_MB: int = 500
 
+    # ── Admin Bootstrap ────────────────────────────────────────
+    # Set these to automatically create an initial admin account on startup.
+    # If ADMIN_EMAIL is empty the bootstrap step is skipped.
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
+    ADMIN_FULL_NAME: str = "Administrator"
+
 
 settings = Settings()

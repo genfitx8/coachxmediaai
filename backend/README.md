@@ -59,6 +59,52 @@ docker compose exec api alembic upgrade head
 
 ---
 
+## Render Deployment (Backend)
+
+This repository includes a Render blueprint at the repo root: `render.yaml`.
+
+### Render services (monorepo-safe)
+
+- **API Web Service**
+  - `rootDir`: `backend`
+  - Build command: `pip install -r requirements.txt`
+  - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Celery Worker** (optional but recommended for AI job processing)
+  - `rootDir`: `backend`
+  - Build command: `pip install -r requirements.txt`
+  - Start command: `celery -A app.workers.celery_app worker --loglevel=info`
+
+### Required environment variables for Render
+
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | Yes | Use async format: `postgresql+asyncpg://...` |
+| `REDIS_URL` | Yes | Redis connection string for Celery broker/backend |
+| `SECRET_KEY` | Yes | Long random JWT signing secret |
+| `CORS_ORIGINS` | Yes | JSON list, e.g. `["https://your-frontend.vercel.app"]` |
+| `ADMIN_EMAIL` | Recommended | Auto-creates/promotes admin account on startup |
+| `ADMIN_PASSWORD` | Recommended | Password for the bootstrap admin account |
+| `ADMIN_FULL_NAME` | Optional | Defaults to `Administrator` |
+
+Other variables from the table below (OAuth, Stripe, S3) are optional unless you use those features.
+
+### First deploy checklist on Render
+
+1. Create/provision PostgreSQL and Redis on Render.
+2. Create services from `render.yaml`.
+3. Set required environment variables.
+4. Run migrations once after initial deploy (from the API service shell):
+
+```bash
+alembic upgrade head
+```
+
+5. Verify health and docs:
+   - `GET /health`
+   - `GET /docs`
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |

@@ -119,6 +119,20 @@ The FastAPI backend requires PostgreSQL, Redis, and Celery workers, so it must b
 
 ---
 
+## Render Deployment (Backend)
+
+Use Render to host the FastAPI backend from this monorepo:
+
+1. Use the included root-level `render.yaml` blueprint.
+2. Confirm the backend services use `rootDir: backend`.
+3. Provision a Render PostgreSQL database and Redis instance.
+4. Set backend environment variables in Render (at minimum: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `CORS_ORIGINS`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`).
+5. Point frontend `NEXT_PUBLIC_API_BASE_URL` to your Render API URL (for example `https://your-api.onrender.com/api/v1`).
+
+See [backend/README.md#render-deployment-backend](backend/README.md#render-deployment-backend) for complete setup details.
+
+---
+
 ## Administrator Account
 
 To bootstrap an initial admin account, add the following to `backend/.env`:

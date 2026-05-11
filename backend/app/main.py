@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -7,8 +8,9 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from app.api.v1.router import router as v1_router
+from app.core.admin_bootstrap import bootstrap_admin
 from app.core.middleware import limiter, setup_middleware
-from app.database import engine
+from app.database import AsyncSessionLocal, engine
 
 
 @asynccontextmanager
@@ -18,8 +20,15 @@ async def lifespan(app: FastAPI):
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception as exc:
-        import logging
         logging.getLogger("uvicorn").warning(f"DB health check failed at startup: {exc}")
+
+    # Startup: bootstrap initial admin account (no-op when env vars are absent)
+    try:
+        async with AsyncSessionLocal() as db:
+            await bootstrap_admin(db)
+    except Exception as exc:
+        logging.getLogger("uvicorn").warning(f"Admin bootstrap failed: {exc}")
+
     yield
     # Shutdown: dispose engine
     await engine.dispose()

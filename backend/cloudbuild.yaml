@@ -1,0 +1,56 @@
+# Cloud Build pipeline for the CoachX Media AI backend.
+#
+# Builds the Docker image, pushes it to Artifact Registry, and deploys
+# a new revision to Cloud Run. Database migrations are not run here;
+# see docs/deploy-gcp.md for the migration workflow.
+#
+# Required substitutions:
+#   _REGION           e.g. asia-northeast3
+#   _AR_REPO          Artifact Registry repository name
+#   _SERVICE          Cloud Run service name
+#   _SQL_INSTANCE     Cloud SQL instance connection name
+#                     (PROJECT:REGION:INSTANCE)
+#
+# Trigger this with:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REGION=asia-northeast3,_AR_REPO=coachxmedia,_SERVICE=coachxmedia-api,_SQL_INSTANCE=PROJECT:REGION:INSTANCE \
+#     backend
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --add-cloudsql-instances=${_SQL_INSTANCE}
+      - --allow-unauthenticated
+      - --port=8000
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,19 +1,59 @@
+databases:
+  - name: coachxmedia-db
+    plan: free
+    databaseName: coachxmedia
+    user: coachxmedia
+
 services:
   - type: web
-    name: coachxmediaai-backend-api
-    env: python
+    name: coachxmedia-api
+    runtime: docker
+    plan: free
+    region: oregon
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
+        fromDatabase:
+          name: coachxmedia-db
+          property: connectionString
       - key: SECRET_KEY
-        sync: false
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+      - key: REDIS_URL
+        value: ""
+      - key: GOOGLE_CLIENT_ID
+        value: ""
+      - key: GOOGLE_CLIENT_SECRET
+        value: ""
+      - key: GOOGLE_REDIRECT_URI
+        value: ""
+      - key: AWS_ACCESS_KEY_ID
+        value: ""
+      - key: AWS_SECRET_ACCESS_KEY
+        value: ""
+      - key: AWS_REGION
+        value: us-east-1
+      - key: S3_BUCKET
+        value: coachxmedia-uploads
+      - key: S3_ENDPOINT_URL
+        value: ""
+      - key: STRIPE_SECRET_KEY
+        value: ""
+      - key: STRIPE_WEBHOOK_SECRET
+        value: ""
+      - key: STRIPE_PRICE_ID_PRO
+        value: ""
       - key: CORS_ORIGINS
         sync: false
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "500"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
@@ -22,15 +62,22 @@ services:
         value: Administrator
 
   - type: worker
-    name: coachxmediaai-backend-worker
-    env: python
+    name: coachxmedia-worker
+    runtime: docker
+    plan: free
+    region: oregon
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    dockerfilePath: ./Dockerfile
     startCommand: celery -A app.workers.celery_app worker --loglevel=info
     envVars:
       - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
+        fromDatabase:
+          name: coachxmedia-db
+          property: connectionString
       - key: SECRET_KEY
-        sync: false
+        fromService:
+          name: coachxmedia-api
+          type: web
+          property: SECRET_KEY
+      - key: REDIS_URL
+        value: ""

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useRequireAuth } from "@/lib/auth";
-import { projects as projectsApi, ProjectRead } from "@/lib/api";
+import { projects as projectsApi, jobs as jobsApi, ProjectRead } from "@/lib/api";
 
 export default function ProjectDetailPage() {
   const { authenticated } = useRequireAuth();
@@ -23,6 +23,35 @@ export default function ProjectDetailPage() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Comparison video form
+  const [beforeFile, setBeforeFile] = useState<File | null>(null);
+  const [afterFile, setAfterFile] = useState<File | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+
+  async function handleRenderComparison(e: FormEvent) {
+    e.preventDefault();
+    if (!beforeFile || !afterFile) {
+      setRenderError("Please choose both a 'before' and an 'after' video file.");
+      return;
+    }
+    setRenderError(null);
+    setRendering(true);
+    if (resultUrl) {
+      URL.revokeObjectURL(resultUrl);
+      setResultUrl(null);
+    }
+    try {
+      const blob = await jobsApi.comparison(beforeFile, afterFile);
+      setResultUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setRenderError(err instanceof Error ? err.message : "Render failed");
+    } finally {
+      setRendering(false);
+    }
+  }
 
   useEffect(() => {
     if (!authenticated) return;
@@ -148,6 +177,71 @@ export default function ProjectDetailPage() {
             <p className="text-lg font-semibold text-gray-800">⚙️ AI Jobs</p>
             <p className="text-sm text-gray-500 mt-1">Submit and track AI processing jobs</p>
           </Link>
+        </div>
+
+        {/* Before / After comparison video */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Before / After Comparison</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Upload two clips and we&apos;ll render a side-by-side comparison MP4.
+              Keep each file under 50&nbsp;MB and roughly 30&nbsp;seconds for best results.
+            </p>
+          </div>
+
+          <form onSubmit={handleRenderComparison} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Before video
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setBeforeFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  After video
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setAfterFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+
+            {renderError && <p className="text-sm text-red-500">{renderError}</p>}
+
+            <button
+              type="submit"
+              disabled={rendering || !beforeFile || !afterFile}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {rendering ? "Rendering… (can take up to a minute)" : "Render comparison video"}
+            </button>
+          </form>
+
+          {resultUrl && (
+            <div className="pt-4 border-t border-gray-100 space-y-3">
+              <video
+                src={resultUrl}
+                controls
+                className="w-full rounded-lg border border-gray-200 bg-black"
+              />
+              <a
+                href={resultUrl}
+                download="comparison.mp4"
+                className="inline-block text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black"
+              >
+                Download MP4
+              </a>
+            </div>
+          )}
         </div>
       </main>
     </>

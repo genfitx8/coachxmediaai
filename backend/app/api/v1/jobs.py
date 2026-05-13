@@ -1,6 +1,18 @@
+import asyncio
+import os
+import tempfile
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +23,11 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobRead
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+# Cap input size for the synchronous comparison endpoint to keep us within
+# the Render free plan's 100s request budget and 512 MB RAM ceiling.
+MAX_COMPARISON_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB per file
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 
 VALID_JOB_TYPES = {"transcription", "summary", "analysis"}
 
@@ -87,6 +104,96 @@ async def delete_job(
             pass
     await db.delete(job)
     await db.commit()
+
+
+def _safe_ext(filename: str | None) -> str:
+    if not filename:
+        return ""
+    _, ext = os.path.splitext(filename)
+    return ext.lower()
+
+
+async def _save_upload_to_tempfile(upload: UploadFile, suffix: str) -> str:
+    """Stream an UploadFile to a temp file, enforcing the size cap."""
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    written = 0
+    try:
+        with os.fdopen(fd, "wb") as f:
+            while chunk := await upload.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_COMPARISON_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=(
+                            "Each video must be 50 MB or less for the synchronous "
+                            "comparison endpoint."
+                        ),
+                    )
+                f.write(chunk)
+    except Exception:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+    return path
+
+
+@router.post("/comparison")
+async def create_comparison_job(
+    background_tasks: BackgroundTasks,
+    before: UploadFile = File(...),
+    after: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Render a side-by-side before/after MP4 synchronously.
+
+    Phase 1 endpoint: keeps inputs and output as temp files on the API host
+    (no S3, no Celery). Suitable for short clips (<= ~30s) on free hosting.
+    """
+    before_ext = _safe_ext(before.filename) or ".mp4"
+    after_ext = _safe_ext(after.filename) or ".mp4"
+    if before_ext not in ALLOWED_VIDEO_EXTENSIONS or after_ext not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                "Unsupported video format. Allowed: "
+                + ", ".join(sorted(ALLOWED_VIDEO_EXTENSIONS))
+            ),
+        )
+
+    before_path = await _save_upload_to_tempfile(before, before_ext)
+    after_path = await _save_upload_to_tempfile(after, after_ext)
+    output_path = tempfile.mkstemp(suffix=".mp4")[1]
+
+    def _cleanup() -> None:
+        for p in (before_path, after_path, output_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+    background_tasks.add_task(_cleanup)
+
+    # moviepy is fully synchronous and CPU-bound; off-load to a thread so we
+    # don't block the event loop.
+    from app.services.video_processor import create_comparison_video
+
+    try:
+        await asyncio.to_thread(
+            create_comparison_video, before_path, after_path, output_path
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Video processing failed: {exc}",
+        ) from exc
+
+    return FileResponse(
+        output_path,
+        media_type="video/mp4",
+        filename="comparison.mp4",
+    )
 
 
 async def _get_owned_job(

@@ -330,6 +330,38 @@ export const jobs = {
   delete(id: string) {
     return apiFetch<void>(`/jobs/${id}`, { method: "DELETE" });
   },
+  /**
+   * Submit two videos and receive the rendered before/after MP4 as a Blob.
+   * Phase 1 synchronous endpoint — the server processes inline, so expect
+   * the request to take roughly as long as the video duration.
+   */
+  async comparison(before: File, after: File): Promise<Blob> {
+    const fd = new FormData();
+    fd.append("before", before);
+    fd.append("after", after);
+
+    const headers: Record<string, string> = {};
+    const token = getAccessToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch(`${BASE_URL}/jobs/comparison`, {
+      method: "POST",
+      headers,
+      body: fd,
+    });
+
+    if (!res.ok) {
+      let message = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        message = err.detail ?? JSON.stringify(err);
+      } catch {
+        // not JSON
+      }
+      throw new Error(message);
+    }
+    return res.blob();
+  },
 };
 
 // ---------------------------------------------------------------------------

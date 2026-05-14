@@ -128,3 +128,115 @@ def create_comparison_video(
             f"ffmpeg exited with code {result.returncode}: "
             f"{result.stderr.strip() or 'no stderr output'}"
         )
+
+
+# Speed factors we expose to the UI. Values < 1 slow the video down, > 1
+# speed it up. ffmpeg's setpts uses 1/speed: setpts=PTS*2 = 0.5x playback.
+ALLOWED_SLOW_MOTION_SPEEDS = (0.5, 0.25, 0.125)
+
+
+def _atempo_chain(speed: float) -> str:
+    """Build an atempo filter chain that matches ``speed`` (audio playback rate).
+
+    A single atempo filter only accepts factors in [0.5, 2.0]; chain copies
+    of 0.5 (or 2.0) until the residual factor falls inside that range.
+    """
+    if speed <= 0:
+        raise ValueError("speed must be > 0")
+    if speed == 1.0:
+        return "atempo=1.0"
+    parts: list[str] = []
+    remaining = speed
+    while remaining < 0.5:
+        parts.append("atempo=0.5")
+        remaining /= 0.5  # divide by 0.5 == multiply by 2
+    while remaining > 2.0:
+        parts.append("atempo=2.0")
+        remaining /= 2.0
+    parts.append(f"atempo={remaining:.6f}")
+    return ",".join(parts)
+
+
+def create_slow_motion_video(
+    input_path: str | Path,
+    output_path: str | Path,
+    speed: float,
+) -> None:
+    """Re-time ``input_path`` to ``speed`` and write to ``output_path``.
+
+    ``speed`` is the playback rate: 0.5 = half speed (slow motion), 2.0 = 2×.
+    Audio is re-timed in pitch-preserving fashion via the ``atempo`` filter.
+    """
+    if speed <= 0:
+        raise ValueError("speed must be > 0")
+    pts_factor = 1.0 / speed  # setpts multiplies PTS by this factor
+
+    video_filter = f"setpts={pts_factor:.6f}*PTS"
+    audio_filter = _atempo_chain(speed)
+
+    cmd = [
+        _ffmpeg_bin(),
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(input_path),
+        "-filter_complex",
+        f"[0:v]{video_filter}[v];[0:a]{audio_filter}[a]",
+        "-map",
+        "[v]",
+        "-map",
+        "[a]?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=240)
+    if result.returncode != 0:
+        # If the source has no audio, the audio filter half of the graph
+        # fails — retry without audio so the video pipeline still wins.
+        if "Stream specifier" in (result.stderr or "") or "no such filter" in (
+            result.stderr or ""
+        ):
+            video_only_cmd = [
+                _ffmpeg_bin(),
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(input_path),
+                "-filter:v",
+                video_filter,
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                str(output_path),
+            ]
+            retry = subprocess.run(
+                video_only_cmd, capture_output=True, text=True, timeout=240
+            )
+            if retry.returncode == 0:
+                return
+            result = retry
+        raise RuntimeError(
+            f"ffmpeg exited with code {result.returncode}: "
+            f"{result.stderr.strip() or 'no stderr output'}"
+        )
+

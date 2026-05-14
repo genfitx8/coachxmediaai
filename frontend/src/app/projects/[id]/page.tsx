@@ -31,6 +31,13 @@ export default function ProjectDetailPage() {
   const [renderError, setRenderError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
+  // Slow-motion form
+  const [slowFile, setSlowFile] = useState<File | null>(null);
+  const [slowSpeed, setSlowSpeed] = useState<number>(0.5);
+  const [slowRendering, setSlowRendering] = useState(false);
+  const [slowError, setSlowError] = useState<string | null>(null);
+  const [slowResultUrl, setSlowResultUrl] = useState<string | null>(null);
+
   async function handleRenderComparison(e: FormEvent) {
     e.preventDefault();
     if (!beforeFile || !afterFile) {
@@ -50,6 +57,28 @@ export default function ProjectDetailPage() {
       setRenderError(err instanceof Error ? err.message : "Render failed");
     } finally {
       setRendering(false);
+    }
+  }
+
+  async function handleRenderSlowMotion(e: FormEvent) {
+    e.preventDefault();
+    if (!slowFile) {
+      setSlowError("Please choose a video file.");
+      return;
+    }
+    setSlowError(null);
+    setSlowRendering(true);
+    if (slowResultUrl) {
+      URL.revokeObjectURL(slowResultUrl);
+      setSlowResultUrl(null);
+    }
+    try {
+      const blob = await jobsApi.slowMotion(slowFile, slowSpeed);
+      setSlowResultUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setSlowError(err instanceof Error ? err.message : "Render failed");
+    } finally {
+      setSlowRendering(false);
     }
   }
 
@@ -236,6 +265,73 @@ export default function ProjectDetailPage() {
               <a
                 href={resultUrl}
                 download="comparison.mp4"
+                className="inline-block text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black"
+              >
+                Download MP4
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Slow motion */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Slow Motion</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Slow a clip down for swing analysis. Output length =
+              input&nbsp;÷&nbsp;speed (½× makes a 5&nbsp;s clip 10&nbsp;s long).
+              Keep under 50&nbsp;MB.
+            </p>
+          </div>
+
+          <form onSubmit={handleRenderSlowMotion} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Video
+              </label>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(e) => setSlowFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Speed
+              </label>
+              <select
+                value={slowSpeed}
+                onChange={(e) => setSlowSpeed(parseFloat(e.target.value))}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value={0.5}>½× (half speed)</option>
+                <option value={0.25}>¼× (quarter speed)</option>
+                <option value={0.125}>⅛× (eighth speed)</option>
+              </select>
+            </div>
+
+            {slowError && <p className="text-sm text-red-500">{slowError}</p>}
+
+            <button
+              type="submit"
+              disabled={slowRendering || !slowFile}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {slowRendering ? "Rendering…" : "Render slow-motion video"}
+            </button>
+          </form>
+
+          {slowResultUrl && (
+            <div className="pt-4 border-t border-gray-100 space-y-3">
+              <video
+                src={slowResultUrl}
+                controls
+                className="w-full rounded-lg border border-gray-200 bg-black"
+              />
+              <a
+                href={slowResultUrl}
+                download={`slow_${slowSpeed}x.mp4`}
                 className="inline-block text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black"
               >
                 Download MP4

@@ -8,6 +8,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     UploadFile,
     status,
@@ -27,7 +28,9 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 # Cap input size for the synchronous comparison endpoint to keep us within
 # the Render free plan's 100s request budget and 512 MB RAM ceiling.
 MAX_COMPARISON_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB per file
+MAX_SLOW_MOTION_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
+ALLOWED_SLOW_MOTION_SPEEDS = {0.5, 0.25, 0.125}
 
 VALID_JOB_TYPES = {"transcription", "summary", "analysis"}
 
@@ -113,20 +116,24 @@ def _safe_ext(filename: str | None) -> str:
     return ext.lower()
 
 
-async def _save_upload_to_tempfile(upload: UploadFile, suffix: str) -> str:
-    """Stream an UploadFile to a temp file, enforcing the size cap."""
+async def _save_upload_to_tempfile(
+    upload: UploadFile,
+    suffix: str,
+    max_bytes: int = MAX_COMPARISON_UPLOAD_BYTES,
+) -> str:
+    """Stream an UploadFile to a temp file, enforcing a size cap."""
     fd, path = tempfile.mkstemp(suffix=suffix)
     written = 0
     try:
         with os.fdopen(fd, "wb") as f:
             while chunk := await upload.read(1024 * 1024):
                 written += len(chunk)
-                if written > MAX_COMPARISON_UPLOAD_BYTES:
+                if written > max_bytes:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                         detail=(
-                            "Each video must be 50 MB or less for the synchronous "
-                            "comparison endpoint."
+                            f"Video must be {max_bytes // (1024 * 1024)} MB or "
+                            "less for synchronous processing."
                         ),
                     )
                 f.write(chunk)
@@ -193,6 +200,70 @@ async def create_comparison_job(
         output_path,
         media_type="video/mp4",
         filename="comparison.mp4",
+    )
+
+
+@router.post("/slow-motion")
+async def create_slow_motion_job(
+    background_tasks: BackgroundTasks,
+    video: UploadFile = File(...),
+    speed: float = Form(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Render a slowed-down version of an uploaded video.
+
+    ``speed`` is a playback rate; supported values are 0.5 (½×), 0.25 (¼×)
+    and 0.125 (⅛×). Phase 1 endpoint — synchronous, no persistence.
+    """
+    if speed not in ALLOWED_SLOW_MOTION_SPEEDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Unsupported speed. Allowed: "
+                + ", ".join(str(s) for s in sorted(ALLOWED_SLOW_MOTION_SPEEDS))
+            ),
+        )
+
+    ext = _safe_ext(video.filename) or ".mp4"
+    if ext not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                "Unsupported video format. Allowed: "
+                + ", ".join(sorted(ALLOWED_VIDEO_EXTENSIONS))
+            ),
+        )
+
+    input_path = await _save_upload_to_tempfile(
+        video, ext, MAX_SLOW_MOTION_UPLOAD_BYTES
+    )
+    output_path = tempfile.mkstemp(suffix=".mp4")[1]
+
+    def _cleanup() -> None:
+        for p in (input_path, output_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+    background_tasks.add_task(_cleanup)
+
+    from app.services.video_processor import create_slow_motion_video
+
+    try:
+        await asyncio.to_thread(
+            create_slow_motion_video, input_path, output_path, speed
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Slow-motion render failed: {exc}",
+        ) from exc
+
+    return FileResponse(
+        output_path,
+        media_type="video/mp4",
+        filename=f"slow_{speed}x.mp4",
     )
 
 

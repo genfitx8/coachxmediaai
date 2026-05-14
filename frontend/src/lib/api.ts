@@ -339,30 +339,43 @@ export const jobs = {
     const fd = new FormData();
     fd.append("before", before);
     fd.append("after", after);
-
-    const headers: Record<string, string> = {};
-    const token = getAccessToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const res = await fetch(`${BASE_URL}/jobs/comparison`, {
-      method: "POST",
-      headers,
-      body: fd,
-    });
-
-    if (!res.ok) {
-      let message = `HTTP ${res.status}`;
-      try {
-        const err = await res.json();
-        message = err.detail ?? JSON.stringify(err);
-      } catch {
-        // not JSON
-      }
-      throw new Error(message);
-    }
-    return res.blob();
+    return postFormForBlob("/jobs/comparison", fd);
+  },
+  /**
+   * Submit a video and receive the slowed-down MP4. ``speed`` must be one
+   * of 0.5, 0.25, 0.125 (½×, ¼×, ⅛×).
+   */
+  async slowMotion(video: File, speed: number): Promise<Blob> {
+    const fd = new FormData();
+    fd.append("video", video);
+    fd.append("speed", String(speed));
+    return postFormForBlob("/jobs/slow-motion", fd);
   },
 };
+
+async function postFormForBlob(path: string, fd: FormData): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      message = err.detail ?? JSON.stringify(err);
+    } catch {
+      // not JSON
+    }
+    throw new Error(message);
+  }
+  return res.blob();
+}
 
 // ---------------------------------------------------------------------------
 // Payments
